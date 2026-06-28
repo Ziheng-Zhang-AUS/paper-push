@@ -2,6 +2,7 @@ from utils.config import load_interest, load_profile
 from utils.arxiv import fetch_arxiv, rough_filter
 from utils.llm import enrich_with_llm_scores, generate_daily_report
 from ranking.rule_ranker import rule_score_papers, finalize_scores
+from ranking.diversity_ranker import diversify_papers
 from utils.feishu import push_feishu
 from storage.db import (
     init_db,
@@ -59,32 +60,38 @@ def main():
         limit=80,
     )
 
-    # 第一步：规则评分
+    # Step 1: 规则评分
     rule_scored_papers = rule_score_papers(selected_papers)
 
-    # 第二步：只把规则排序后的 Top40 交给 LLM
+    # Step 2: LLM 补充 innovation / engineering / reason / relation
     llm_enriched_papers = enrich_with_llm_scores(
         papers=rule_scored_papers,
         profile=profile,
         limit=40,
     )
 
-    # 第三步：Python 重新计算综合分并排序
+    # Step 3: Python 重新计算综合分
     final_scored_papers = finalize_scores(llm_enriched_papers)
 
     update_scores(final_scored_papers)
 
+    # Step 4: 多样性重排，避免纯 Top20 信息茧房
+    diversified_papers = diversify_papers(
+        scored_papers=final_scored_papers,
+        top_k=top_k,
+    )
+
     topic_stats = get_recent_topic_stats(limit=10)
 
     report = generate_daily_report(
-        scored_papers=final_scored_papers,
+        scored_papers=diversified_papers,
         topic_stats=topic_stats,
         top_k=top_k,
     )
 
     push_feishu(report)
 
-    mark_pushed(final_scored_papers[:top_k])
+    mark_pushed(diversified_papers)
 
 
 if __name__ == "__main__":

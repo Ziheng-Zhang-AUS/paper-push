@@ -2,9 +2,12 @@ from utils.config import load_interest, load_profile
 from utils.arxiv import fetch_arxiv, rough_filter
 from utils.llm import rank_and_summarize
 from utils.feishu import push_feishu
+from storage.db import init_db, upsert_papers, mark_pushed
 
 
 def main():
+    init_db()
+
     interest = load_interest()
     profile = load_profile()
 
@@ -23,8 +26,14 @@ def main():
         push_feishu("论文推送\n\n今日 arXiv 没有抓取到论文。")
         return
 
+    new_papers = upsert_papers(papers)
+
+    if not new_papers:
+        push_feishu("论文推送\n\n今日没有新的 arXiv 论文。")
+        return
+
     selected_papers = rough_filter(
-        papers=papers,
+        papers=new_papers,
         positive_keywords=positive_keywords,
         negative_keywords=negative_keywords,
         limit=80,
@@ -37,6 +46,7 @@ def main():
     )
 
     push_feishu(result)
+    mark_pushed(selected_papers)
 
 
 if __name__ == "__main__":

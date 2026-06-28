@@ -5,6 +5,9 @@ on:
     - cron: "0 1 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -22,3 +25,11 @@ jobs:
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Commit database
+        run: |
+          git config --global user.name "paper-bot"
+          git config --global user.email "paper-bot@example.com"
+          git add paper_assistant.db
+          git commit -m "update paper database" || echo "No database changes"
+          git push

@@ -1,6 +1,6 @@
 import sqlite3
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -9,6 +9,11 @@ DB_PATH = ROOT / "paper_assistant.db"
 
 def get_conn():
     return sqlite3.connect(DB_PATH)
+
+
+def get_columns(cur, table_name):
+    cur.execute(f"PRAGMA table_info({table_name})")
+    return {row[1] for row in cur.fetchall()}
 
 
 def init_db():
@@ -72,11 +77,6 @@ def init_db():
 
     conn.commit()
     conn.close()
-
-
-def get_columns(cur, table_name):
-    cur.execute(f"PRAGMA table_info({table_name})")
-    return {row[1] for row in cur.fetchall()}
 
 
 def upsert_papers(papers):
@@ -188,3 +188,70 @@ def get_recent_topic_stats(limit=10):
     rows = cur.fetchall()
     conn.close()
     return rows
+
+
+def get_topic_trends(limit=10):
+    """
+    Trend Engine v1:
+    统计最近 7 天和 30 天 topic 频次，并计算增长率。
+    """
+    conn = get_conn()
+    cur = conn.cursor()
+
+    now = datetime.now()
+    date_7d = (now - timedelta(days=7)).isoformat(timespec="seconds")
+    date_30d = (now - timedelta(days=30)).isoformat(timespec="seconds")
+
+    cur.execute("""
+    SELECT topic, COUNT(*)
+    FROM papers
+    WHERE topic IS NOT NULL
+      AND last_seen >= ?
+    GROUP BY topic
+    """, (date_7d,))
+    rows_7d = dict(cur.fetchall())
+
+    cur.execute("""
+    SELECT topic, COUNT(*)
+    FROM papers
+    WHERE topic IS NOT NULL
+      AND last_seen >= ?
+    GROUP BY topic
+    """, (date_30d,))
+    rows_30d = dict(cur.fetchall())
+
+    conn.close()
+
+    topics = set(rows_7d.keys()) | set(rows_30d.keys())
+    trends = []
+
+    for topic in topics:
+        count_7d = rows_7d.get(topic, 0)
+        count_30d = rows_30d.get(topic, 0)
+
+        expected_7d = max(count_30d / 4.0, 1)
+        growth_rate = round(count_7d / expected_7d, 2)
+
+        if count_7d >= 5 and growth_rate >= 1.8:
+            status = "快速上升"
+        elif count_7d >= 5 and growth_rate >= 1.0:
+            status = "持续高热"
+        elif count_7d >= 2:
+            status = "有一定活跃"
+        else:
+            status = "低频观察"
+
+        trends.append({
+            "topic": topic,
+            "count_7d": count_7d,
+            "count_30d": count_30d,
+            "growth_rate": growth_rate,
+            "status": status,
+        })
+
+    trends.sort(
+        key=lambda x: (x["count_7d"], x["growth_rate"]),
+        reverse=True,
+    )
+
+    return trends[:limit]

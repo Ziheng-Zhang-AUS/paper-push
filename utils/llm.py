@@ -54,8 +54,6 @@ def enrich_with_llm_scores(papers, profile, limit=40):
 
 {paper_text}
 
-评分标准如下。
-
 innovation_score：方法创新程度，0-10 分
 - 0-2：几乎没有方法创新，只是应用已有方法、普通 benchmark、普通实验对比。
 - 3-4：有小幅改进，但主要是组合已有模块，技术新意有限。
@@ -74,7 +72,6 @@ engineering_score：工程落地潜力，0-10 分
 - 只根据标题和摘要判断，不要编造摘要中没有的信息。
 - 如果摘要没有说明线上实验、开源代码、真实系统部署，不要给 engineering_score 9-10。
 - 如果只是把已有方法套到新场景，不要给 innovation_score 8 以上。
-- 如果论文和内容安全、推荐系统、TikTok业务、风控、多模态内容理解相关，即使创新一般，也可以在 reason 中说明业务价值。
 - 输出必须是合法 JSON 数组。
 - 不要输出 markdown。
 - 不要输出额外解释。
@@ -93,14 +90,8 @@ engineering_score：工程落地潜力，0-10 分
     response = client.chat.completions.create(
         model=MODEL,
         messages=[
-            {
-                "role": "system",
-                "content": "你只输出合法 JSON 数组，不输出 markdown，不输出额外解释。",
-            },
-            {
-                "role": "user",
-                "content": prompt,
-            },
+            {"role": "system", "content": "你只输出合法 JSON 数组，不输出 markdown，不输出额外解释。"},
+            {"role": "user", "content": prompt},
         ],
         temperature=0.1,
     )
@@ -156,13 +147,31 @@ def clamp_score(value):
     return value
 
 
-def generate_daily_report(scored_papers, topic_stats=None, top_k=20):
+def format_trends(topic_trends):
+    if not topic_trends:
+        return "暂无足够历史数据。"
+
+    lines = []
+    for trend in topic_trends:
+        lines.append(
+            f"- {trend['topic']}：{trend['status']}，"
+            f"7天 {trend['count_7d']} 篇，"
+            f"30天 {trend['count_30d']} 篇，"
+            f"增长率 {trend['growth_rate']}"
+        )
+
+    return "\n".join(lines)
+
+
+def generate_daily_report(scored_papers, topic_stats=None, topic_trends=None, top_k=20):
     today = datetime.now().strftime("%Y-%m-%d")
     top_papers = scored_papers[:top_k]
 
     topic_text = ""
     if topic_stats:
         topic_text = "\n".join([f"- {topic}: {count}" for topic, count in topic_stats])
+
+    trend_text = format_trends(topic_trends)
 
     paper_text = "\n\n".join([
         f"{idx + 1}. {paper['title']}\n"
@@ -186,15 +195,20 @@ def generate_daily_report(scored_papers, topic_stats=None, top_k=20):
 要求：
 - 标题：论文推送｜{today}
 - 先给出今日概览
+- 加入“趋势观察”
 - 再给出 Top {top_k}
 - 每篇保持简洁
 - 不要重新打分
 - 不要改变排序
 - 不要编造论文没有的信息
 - 重点强调：工作业务相关、内容安全、推荐系统、AI热点
+- 注意避免信息茧房：探索类论文可以标注为“探索观察”，不要强行说和业务直接相关
 
 历史主题统计：
 {topic_text}
+
+趋势统计：
+{trend_text}
 
 论文列表：
 {paper_text}
@@ -207,6 +221,9 @@ def generate_daily_report(scored_papers, topic_stats=None, top_k=20):
 - 候选论文数：
 - 推荐论文数：
 - 今日最值得关注方向：
+
+趋势观察：
+...
 
 近期主题统计：
 ...
@@ -227,14 +244,8 @@ Top论文：
     response = client.chat.completions.create(
         model=MODEL,
         messages=[
-            {
-                "role": "system",
-                "content": "你是严谨的 AI 科研日报写作助手。不要改变给定排序和分数。",
-            },
-            {
-                "role": "user",
-                "content": prompt,
-            },
+            {"role": "system", "content": "你是严谨的 AI 科研日报写作助手。不要改变给定排序和分数。"},
+            {"role": "user", "content": prompt},
         ],
         temperature=0.2,
     )

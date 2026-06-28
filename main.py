@@ -10,6 +10,7 @@ from storage.db import (
     update_scores,
     mark_pushed,
     get_recent_topic_stats,
+    get_topic_trends,
 )
 
 
@@ -60,32 +61,30 @@ def main():
         limit=80,
     )
 
-    # Step 1: 规则评分
     rule_scored_papers = rule_score_papers(selected_papers)
 
-    # Step 2: LLM 补充 innovation / engineering / reason / relation
     llm_enriched_papers = enrich_with_llm_scores(
         papers=rule_scored_papers,
         profile=profile,
         limit=40,
     )
 
-    # Step 3: Python 重新计算综合分
     final_scored_papers = finalize_scores(llm_enriched_papers)
 
     update_scores(final_scored_papers)
 
-    # Step 4: 多样性重排，避免纯 Top20 信息茧房
     diversified_papers = diversify_papers(
         scored_papers=final_scored_papers,
         top_k=top_k,
     )
 
     topic_stats = get_recent_topic_stats(limit=10)
+    topic_trends = get_topic_trends(limit=10)
 
     report = generate_daily_report(
         scored_papers=diversified_papers,
         topic_stats=topic_stats,
+        topic_trends=topic_trends,
         top_k=top_k,
     )
 

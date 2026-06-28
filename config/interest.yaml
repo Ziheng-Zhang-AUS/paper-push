@@ -1,1 +1,85 @@
 
+top_k: 20
+fetch_max_results: 250
+
+categories:
+  - cs.AI
+  - cs.CL
+  - cs.LG
+  - cs.CV
+  - cs.IR
+
+positive_keywords:
+  - large language model
+  - llm
+  - foundation model
+  - agent
+  - agentic
+  - tool use
+  - function calling
+  - planning
+  - memory
+  - rag
+  - retrieval augmented generation
+  - mcp
+  - model context protocol
+  - skill
+  - skill learning
+  - skill library
+  - agent loop
+  - loop
+  - multimodal
+  - vision-language
+  - vlm
+  - video understanding
+  - long video
+  - short video
+  - recommendation
+  - recommender
+  - personalization
+  - content safety
+  - ai safety
+  - safety alignment
+  - moderation
+  - risk control
+  - trust and safety
+  - toxicity
+  - hate speech
+  - misinformation
+  - harmful content
+  - jailbreak
+  - prompt injection
+  - guardrails
+  - red teaming
+  - evaluation
+  - benchmark
+  - synthetic data
+  - data curation
+  - long context
+  - moe
+  - lora
+  - peft
+  - distillation
+  - inference optimization
+  - reasoning model
+  - test-time scaling
+  - rlvr
+  - rlhf
+  - rlaif
+  - vla
+  - vision-language-action
+  - world model
+
+negative_keywords:
+  - medical diagnosis
+  - clinical
+  - protein
+  - drug discovery
+  - molecule
+  - robotics hardware
+  - chip design
+  - fpga
+  - diffusion image generation
+  - text-to-image
+  - 3d reconstruction
+  - autonomous driving

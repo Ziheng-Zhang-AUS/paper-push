@@ -1,8 +1,14 @@
 from utils.config import load_interest, load_profile
 from utils.arxiv import fetch_arxiv, rough_filter
-from utils.llm import rank_and_summarize
+from utils.llm import score_papers, generate_daily_report
 from utils.feishu import push_feishu
-from storage.db import init_db, upsert_papers, mark_pushed
+from storage.db import (
+    init_db,
+    upsert_papers,
+    update_scores,
+    mark_pushed,
+    get_recent_topic_stats,
+)
 
 
 def main():
@@ -39,14 +45,23 @@ def main():
         limit=80,
     )
 
-    result = rank_and_summarize(
+    scored_papers = score_papers(
         papers=selected_papers,
         profile=profile,
+    )
+
+    update_scores(scored_papers)
+
+    topic_stats = get_recent_topic_stats(limit=10)
+
+    report = generate_daily_report(
+        scored_papers=scored_papers,
+        topic_stats=topic_stats,
         top_k=top_k,
     )
 
-    push_feishu(result)
-    mark_pushed(selected_papers)
+    push_feishu(report)
+    mark_pushed(scored_papers[:top_k])
 
 
 if __name__ == "__main__":

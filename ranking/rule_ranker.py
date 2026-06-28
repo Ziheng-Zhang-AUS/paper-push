@@ -15,7 +15,6 @@ BUSINESS_KEYWORDS = [
     "ai safety",
     "safety classification",
     "safety classifier",
-    "safety classifiers",
     "moderation",
     "trust and safety",
     "risk control",
@@ -24,25 +23,17 @@ BUSINESS_KEYWORDS = [
     "misinformation",
     "harmful content",
     "harmful video",
-    "harmful video understanding",
     "unsafe content",
-    "unsafe prompt",
     "policy violation",
-    "policy",
     "jailbreak",
     "prompt injection",
     "guardrail",
-    "guardrails",
     "red teaming",
     "coded language",
-    "coded language detection",
     "indirect linguistic encoding",
-    "implicit hate",
     "intent-aware",
-    "intent aware",
     "adversarial text",
     "evasion",
-    "evasion vulnerability",
     "video understanding",
     "short video",
     "recommendation",
@@ -52,8 +43,6 @@ BUSINESS_KEYWORDS = [
     "social media",
     "user generated content",
     "ugc",
-    "abuse detection",
-    "trustworthy",
 ]
 
 RESEARCH_KEYWORDS = [
@@ -119,61 +108,34 @@ def infer_topic(text):
     text = text.lower()
 
     if any(k in text for k in [
-        "content safety",
-        "harmful",
-        "toxicity",
-        "hate speech",
-        "misinformation",
-        "moderation",
-        "jailbreak",
-        "prompt injection",
-        "guardrail",
-        "coded language",
-        "indirect linguistic encoding",
-        "safety classification",
-        "safety classifier",
-        "adversarial text",
-        "evasion",
+        "content safety", "harmful", "toxicity", "hate speech",
+        "misinformation", "moderation", "jailbreak", "prompt injection",
+        "guardrail", "coded language", "indirect linguistic encoding",
+        "safety classification", "adversarial text", "evasion"
     ]):
         return "Content Safety"
 
     if any(k in text for k in [
-        "recommendation",
-        "recommender",
-        "personalization",
-        "session-based recommendation",
-        "industrial recommendation",
+        "recommendation", "recommender", "personalization",
+        "session-based recommendation", "industrial recommendation"
     ]):
         return "Recommendation"
 
     if any(k in text for k in [
-        "agent",
-        "tool use",
-        "multi-agent",
-        "mcp",
-        "model context protocol",
-        "gui agent",
+        "agent", "tool use", "multi-agent", "mcp",
+        "model context protocol", "gui agent"
     ]):
         return "LLM Agent"
 
     if any(k in text for k in [
-        "multimodal",
-        "vision-language",
-        "vlm",
-        "video understanding",
-        "long video",
-        "visual token",
-        "mllm",
+        "multimodal", "vision-language", "vlm",
+        "video understanding", "long video", "visual token", "mllm"
     ]):
         return "Multimodal"
 
     if any(k in text for k in [
-        "reasoning",
-        "rlvr",
-        "rlhf",
-        "rlaif",
-        "test-time scaling",
-        "reward",
+        "reasoning", "rlvr", "rlhf", "rlaif",
+        "test-time scaling", "reward"
     ]):
         return "LLM Training / Reasoning"
 
@@ -191,13 +153,30 @@ def infer_paper_type(business_score, research_score, trend_score):
 
 
 def infer_priority(overall_score, business_score=0):
-    if business_score >= 6 or overall_score >= 5.0:
+    if business_score >= 6 or overall_score >= 8.0:
         return "高"
-    if business_score >= 4 or overall_score >= 3.0:
+    if business_score >= 4 or overall_score >= 6.5:
         return "中"
-    if overall_score >= 2.0:
+    if overall_score >= 5.0:
         return "低"
     return "跟踪即可"
+
+
+def compute_overall_score(paper):
+    business = float(paper.get("business_score", 0) or 0)
+    research = float(paper.get("research_score", 0) or 0)
+    trend = float(paper.get("trend_score", 0) or 0)
+    innovation = float(paper.get("innovation_score", 0) or 0)
+    engineering = float(paper.get("engineering_score", 0) or 0)
+
+    return round(
+        0.40 * business
+        + 0.25 * research
+        + 0.15 * trend
+        + 0.15 * innovation
+        + 0.05 * engineering,
+        2,
+    )
 
 
 def rule_score_papers(papers):
@@ -213,23 +192,6 @@ def rule_score_papers(papers):
 
         topic = infer_topic(lower_text)
 
-        innovation_score = 0
-        engineering_score = 0
-
-        overall_score = round(
-            0.40 * business_score
-            + 0.25 * research_score
-            + 0.15 * trend_score
-            + 0.15 * innovation_score
-            + 0.05 * engineering_score,
-            2,
-        )
-
-        low_priority_hit = any(keyword in lower_text for keyword in LOW_PRIORITY_KEYWORDS)
-
-        if low_priority_hit:
-            overall_score = round(overall_score * 0.5, 2)
-
         enriched = paper.copy()
         enriched.update({
             "topic": topic,
@@ -237,17 +199,21 @@ def rule_score_papers(papers):
             "business_score": business_score,
             "research_score": research_score,
             "trend_score": trend_score,
-            "innovation_score": innovation_score,
-            "engineering_score": engineering_score,
-            "overall_score": overall_score,
-            "priority": infer_priority(overall_score, business_score),
+            "innovation_score": 0,
+            "engineering_score": 0,
             "business_hits": business_hits,
             "research_hits": research_hits,
             "trend_hits": trend_hits,
-            "low_priority_hit": low_priority_hit,
-            "reason": build_rule_reason(business_hits, research_hits, trend_hits, low_priority_hit),
-            "relation": build_rule_relation(topic, business_score, research_score, trend_score),
+            "low_priority_hit": any(keyword in lower_text for keyword in LOW_PRIORITY_KEYWORDS),
         })
+
+        overall_score = compute_overall_score(enriched)
+
+        if enriched["low_priority_hit"]:
+            overall_score = round(overall_score * 0.5, 2)
+
+        enriched["overall_score"] = overall_score
+        enriched["priority"] = infer_priority(overall_score, business_score)
 
         scored.append(enriched)
 
@@ -255,35 +221,24 @@ def rule_score_papers(papers):
     return scored
 
 
-def build_rule_reason(business_hits, research_hits, trend_hits, low_priority_hit):
-    parts = []
+def finalize_scores(papers):
+    finalized = []
 
-    if business_hits:
-        parts.append("命中业务关键词：" + ", ".join(business_hits[:5]))
+    for paper in papers:
+        overall_score = compute_overall_score(paper)
 
-    if research_hits:
-        parts.append("命中长期研究关键词：" + ", ".join(research_hits[:5]))
+        if paper.get("low_priority_hit"):
+            overall_score = round(overall_score * 0.5, 2)
 
-    if trend_hits:
-        parts.append("命中热点关键词：" + ", ".join(trend_hits[:5]))
+        paper["overall_score"] = overall_score
+        paper["priority"] = infer_priority(overall_score, paper.get("business_score", 0))
+        paper["paper_type"] = infer_paper_type(
+            paper.get("business_score", 0),
+            paper.get("research_score", 0),
+            paper.get("trend_score", 0),
+        )
 
-    if low_priority_hit:
-        parts.append("命中低优先级领域关键词，综合分已降权")
+        finalized.append(paper)
 
-    if not parts:
-        return "未命中明显高优先级关键词，暂作为低优先级观察。"
-
-    return "；".join(parts)
-
-
-def build_rule_relation(topic, business_score, research_score, trend_score):
-    if business_score >= 4:
-        return f"与当前 TikTok 内容安全、风控、推荐或多模态内容理解方向相关；主题为 {topic}。"
-
-    if research_score >= 7:
-        return f"与长期 AI 技术积累相关；主题为 {topic}。"
-
-    if trend_score >= 6:
-        return f"属于近期 AI 热点跟踪方向；主题为 {topic}。"
-
-    return f"相关性一般，主题为 {topic}，可低频跟踪。"
+    finalized.sort(key=lambda x: x["overall_score"], reverse=True)
+    return finalized

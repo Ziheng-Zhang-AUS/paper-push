@@ -65,28 +65,7 @@ def main():
         limit=80,
     )
 
-    # ============================================================
-    # 临时测试逻辑：只用 Python 规则评分
-    # 测试目标：
-    # 1. business_score / research_score / trend_score 是否稳定
-    # 2. 排序是否更偏向内容安全、推荐、Agent、MCP、多模态
-    # 3. 日报是否能基于规则分数生成
-    # ============================================================
     scored_papers = rule_score_papers(selected_papers)
-
-    # ============================================================
-    # 正式目标逻辑：后续版本改成：
-    # 1. rule_score_papers() 先给 business/research/trend/topic
-    # 2. LLM 只补充 innovation_score / engineering_score / reason / relation
-    # 3. Python 重新计算 overall_score
-    #
-    # 暂时不要用：
-    #
-    # scored_papers = score_papers(
-    #     papers=selected_papers,
-    #     profile=profile,
-    # )
-    # ============================================================
 
     update_scores(scored_papers)
 

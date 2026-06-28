@@ -8,7 +8,10 @@ from datetime import datetime, timedelta, timezone
 FEISHU_WEBHOOK = os.environ["FEISHU_WEBHOOK"]
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 
-client = OpenAI(api_key=OPENAI_API_KEY)
+client = OpenAI(
+    api_key=os.environ["OPENAI_API_KEY"],
+    base_url="https://api.deepinfra.com/v1/openai",
+)
 
 KEYWORDS = [
     "large language model",
@@ -94,7 +97,7 @@ def summarize_papers(papers):
 """
 
     resp = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="deepseek-ai/DeepSeek-V4-Flash",
         messages=[
             {"role": "system", "content": "你是严谨的 AI 论文筛选和总结助手。"},
             {"role": "user", "content": prompt},
